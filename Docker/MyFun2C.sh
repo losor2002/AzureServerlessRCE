@@ -49,7 +49,3 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "Successo! L'output dell'esecuzione è stato salvato in $OUTPUT_TXT"
-
-echo "Output:"
-
-cat "$OUTPUT_TXT"
