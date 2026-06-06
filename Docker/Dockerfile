@@ -7,15 +7,15 @@ RUN apt-get update && apt-get install -y \
     gcc \
     build-essential \
     bash \
+    python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
+# Installiamo gli SDK di Azure per Python
+RUN pip3 install azure-storage-blob azure-storage-queue azure-cosmos
+
 WORKDIR /app
-
-# Copia il jar, lo script bash e gli eventuali file di test
 COPY . /app
-
-# Rende eseguibile lo script
 RUN chmod +x MyFun2C.sh
 
-# Il comando di default per i test in locale
-CMD ["./MyFun2C.sh", "test_sorgente.txt", "test_input.txt"]
+CMD ["python3", "-u", "worker.py"]
