@@ -36,40 +36,47 @@ def avvia_worker():
             print(f"\n--- NUOVO JOB RICEVUTO: {msg.id} ---")
             
             try:
-                # Il messaggio sarà un JSON: {"jobId": "123", "sourceFile": "codice.txt", "inputFile": "dati.txt"}
+                # Il messaggio sarà un JSON: {"jobId": "123"}
                 dati_job = json.loads(msg.content)
                 job_id = dati_job['jobId']
-                source_blob_name = dati_job['sourceFile']
-                input_blob_name = dati_job['inputFile']
+            except Exception as e:
+                print(f"ERRORE CRITICO durante la lettura del messaggio: {e}")
                 
-                # Nomi temporanei per i file scaricati nel container Docker
-                local_source = f"sorgente_{job_id}.txt"
-                local_input = f"input_{job_id}.txt"
+                # Eliminiamo il messaggio dalla coda
+                queue_client.delete_message(msg)
+                print("Messaggio rimosso dalla coda. Torno in ascolto...")
+                continue
+            
+            try:
+                # Nomi dei file in input
+                source_blob_name = f"sorgente_{job_id}.txt"
+                input_blob_name = f"input_{job_id}.txt"
+                # Nomi dei file di output
+                output_txt_name = f"sorgente_{job_id}_output.txt"
+                c_file_name = f"sorgente_{job_id}.c"
                 
                 print(f"[1/4] Download dei file dal Blob Storage...")
-                with open(local_source, "wb") as f:
+                with open(source_blob_name, "wb") as f:
                     f.write(container_input.download_blob(source_blob_name).readall())
-                with open(local_input, "wb") as f:
+                with open(input_blob_name, "wb") as f:
                     f.write(container_input.download_blob(input_blob_name).readall())
 
                 print(f"[2/4] Esecuzione della compilazione (MyFun2C.sh)...")
                 inizio = time.time()
                 # Lanciamo lo script che hai creato prima
                 processo = subprocess.run(
-                    ["./MyFun2C.sh", local_source, local_input], 
+                    ["./MyFun2C.sh", source_blob_name, input_blob_name], 
                     capture_output=True, text=True
                 )
                 tempo_esecuzione = round(time.time() - inizio, 2)
 
                 print(f"[3/4] Caricamento dei risultati sul Blob Storage...")
-                output_txt_name = f"{job_id}_output_finale.txt"
-                c_file_name = f"sorgente_{job_id}.c" # Il tuo script aggiunge .c al nome base
                 
                 stato_esecuzione = "Success" if processo.returncode == 0 else "Error"
                 
                 # Carichiamo l'output testuale (stdout)
-                if os.path.exists("output_finale.txt"):
-                    with open("output_finale.txt", "rb") as f:
+                if os.path.exists(output_txt_name):
+                    with open(output_txt_name, "rb") as f:
                         container_output.upload_blob(name=output_txt_name, data=f, overwrite=True)
                 
                 # Carichiamo il codice C intermedio generato
@@ -85,8 +92,6 @@ def avvia_worker():
                     "status": stato_esecuzione,
                     "executionTimeSec": tempo_esecuzione,
                     "log": processo.stderr if processo.returncode != 0 else processo.stdout,
-                    "outputBlob": output_txt_name,
-                    "cFileBlob": c_file_name
                 }
                 # Upsert aggiorna il record se esiste, lo crea se non esiste
                 cosmos_container.upsert_item(documento_db)
@@ -99,7 +104,25 @@ def avvia_worker():
             finally:
                 # Qualsiasi cosa succeda (successo o errore), eliminiamo il messaggio dalla coda
                 queue_client.delete_message(msg)
-                print("Messaggio rimosso dalla coda. Torno in ascolto...")
+                print("Messaggio rimosso dalla coda.")
+                
+                # 2. Pulizia del File System
+                print("Pulizia dei file temporanei in corso...")
+                file_da_cancellare = [
+                    source_blob_name,                           # Es: sorgente_123.txt
+                    input_blob_name,                            # Es: input_123.txt
+                    c_file_name,                                # Es: sorgente_123.c
+                    output_txt_name,                            # Il file generato dallo script bash
+                    f"sorgente_{job_id}.out",                   # L'eseguibile compilato da GCC
+                    f"sorgente_{job_id}_parsed.xml"             # L'AST ottenuto dall'analisi sintattica
+                ]
+                
+                for file_temp in file_da_cancellare:
+                    if os.path.exists(file_temp):
+                        os.remove(file_temp)
+                        print(f"  - Eliminato: {file_temp}")
+                
+                print("Pulizia completata. Torno in ascolto...")
             
         time.sleep(5)
 

@@ -11,7 +11,7 @@ BATCH_INPUT=$2
 BASE_NAME="${INPUT_FILE%.*}"
 C_FILE="${BASE_NAME}.c"
 EXECUTABLE="${BASE_NAME}.out"
-OUTPUT_TXT="output_finale.txt"
+OUTPUT_TXT="${BASE_NAME}_output.txt"
 
 echo "=== Pipeline di Compilazione ed Esecuzione ==="
 echo "Input: $INPUT_FILE"
