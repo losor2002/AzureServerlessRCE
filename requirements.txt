@@ -1,0 +1,5 @@
+streamlit
+python-dotenv
+azure-storage-blob
+azure-storage-queue
+azure-cosmos
