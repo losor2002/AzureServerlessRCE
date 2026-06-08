@@ -32,4 +32,4 @@ jobs:
           context: ./Docker
           push: true
           # Tagga l'immagine col nome del tuo server ACR
-          tags: ${{ secrets.ACR_LOGIN_SERVER }}/compilatore-cloud:latest
+          tags: ${{ secrets.ACR_LOGIN_SERVER }}/compilatore-cloud:v1
