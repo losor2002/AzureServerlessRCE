@@ -45,35 +45,28 @@ def mostra_risultati(risultato):
     st.subheader("Log della Compilazione (MyFun2C.sh)")
     st.code(risultato.get('log', 'Nessun log disponibile.'), language="text")
     
-    if risultato.get('status') == 'Success':
-        # Crea due colonne affiancate per l'Output e il Codice C
-        col_out, col_c = st.columns(2)
+    # Crea due colonne affiancate per l'Output e il Codice C
+    col_out, col_c = st.columns(2)
 
-        with col_out:
-            st.subheader("Output del Programma Eseguito")
+    with col_out:
+        st.subheader("Output del Programma Eseguito")
+        try:
+            out_blob = f"sorgente_{risultato['jobId']}_output.txt"
+            # Scarica il file output.txt e lo decodifica
+            testo_out = container_out.download_blob(out_blob).readall().decode('utf-8', errors='replace')
+            st.code(testo_out, language="text")
+        except Exception as e:
+            st.info("Nessun output registrato per questo job.")
+
+    with col_c:
+        with st.expander("Codice C Generato", expanded=False):
             try:
-                out_blob = f"sorgente_{risultato['jobId']}_output.txt"
-                if out_blob:
-                    # Scarica il file output.txt e lo decodifica
-                    testo_out = container_out.download_blob(out_blob).readall().decode('utf-8', errors='replace')
-                    st.code(testo_out, language="text")
-                else:
-                    st.info("Nessun output registrato per questo job.")
+                c_blob = f"sorgente_{risultato['jobId']}.c"
+                # Scarica il file .c e lo decodifica
+                testo_c = container_out.download_blob(c_blob).readall().decode('utf-8', errors='replace')
+                st.code(testo_c, language="c")
             except Exception as e:
-                st.warning(f"File di output non trovato nel Blob Storage: {e}")
-
-        with col_c:
-            with st.expander("Codice C Generato", expanded=False):
-                try:
-                    c_blob = f"sorgente_{risultato['jobId']}.c"
-                    if c_blob:
-                        # Scarica il file .c e lo decodifica
-                        testo_c = container_out.download_blob(c_blob).readall().decode('utf-8', errors='replace')
-                        st.code(testo_c, language="c")
-                    else:
-                        st.info("Nessun file C registrato per questo job.")
-                except Exception as e:
-                    st.warning(f"File C non trovato nel Blob Storage: {e}")
+                st.info("Nessun file C registrato per questo job.")
 
 
 # --- SCHEDA 1: NUOVO JOB ---
