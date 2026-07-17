@@ -79,7 +79,7 @@ def avvia_worker():
                     output_parziale = e.stdout.decode('utf-8') if e.stdout else ""
                     errore_parziale = e.stderr.decode('utf-8') if e.stderr else ""
 
-                    log_output = f"⚠️ ERRORE CRITICO: L'esecuzione ha superato il limite di 50 secondi ed è stata interrotta forzatamente.\nPotrebbe esserci un loop infinito nel codice.\n\nOutput parziale:\n{output_parziale}\n\nErrore parziale:\n{errore_parziale}"
+                    log_output = f"⚠️ ERRORE CRITICO: L'esecuzione ha superato il limite di {VISIBILITY_TIMEOUT - 20} secondi ed è stata interrotta forzatamente.\nPotrebbe esserci un loop infinito nel codice.\n\nOutput parziale:\n{output_parziale}\n\nErrore parziale:\n{errore_parziale}"
             
                 tempo_esecuzione = round(time.time() - inizio, 2)
 
@@ -88,7 +88,7 @@ def avvia_worker():
                 stato_esecuzione = "Timeout" if timeout_occurred else "Success" if processo.returncode == 0 else "Error"
                 
                 # Carichiamo l'output testuale (stdout)
-                if os.path.exists(output_txt_name):
+                if os.path.exists(output_txt_name) and os.path.getsize(output_txt_name) < 4 * 1024: # Limitiamo a 4KB
                     with open(output_txt_name, "rb") as f:
                         container_output.upload_blob(name=output_txt_name, data=f, overwrite=True)
                 

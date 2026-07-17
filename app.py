@@ -58,7 +58,7 @@ def mostra_risultati(risultato):
             testo_out = container_out.download_blob(out_blob).readall().decode('utf-8', errors='replace')
             st.code(testo_out, language="text")
         except Exception as e:
-            st.info("Nessun output registrato per questo job.")
+            st.info("Nessun output registrato per questo job. (Limite dimensioni 4KB)")
 
     with col_c:
         with st.expander("Codice C Generato", expanded=False):
@@ -103,7 +103,7 @@ with tab_nuovo:
                 
                 risultato = None
                 tentativi = 0
-                while tentativi < 30: # Circa 60 secondi di timeout
+                while tentativi < 31: # Circa 60 secondi di timeout
                     time.sleep(2)
                     tentativi += 1
                     query = f"SELECT * FROM c WHERE c.jobId = '{job_id}'"
