@@ -30,7 +30,8 @@ def avvia_worker():
     print("Worker avviato. In attesa di messaggi nella coda 'job-queue'...")
     
     while True:
-        messaggi = queue_client.receive_messages(max_messages=1)
+        VISIBILITY_TIMEOUT = 60  # Timeout di visibilità in secondi
+        messaggi = queue_client.receive_messages(max_messages=1, visibility_timeout=VISIBILITY_TIMEOUT)
         
         for msg in messaggi:
             print(f"\n--- NUOVO JOB RICEVUTO: {msg.id} ---")
@@ -63,16 +64,28 @@ def avvia_worker():
 
                 print(f"[2/4] Esecuzione della compilazione (MyFun2C.sh)...")
                 inizio = time.time()
-                # Lanciamo lo script che hai creato prima
-                processo = subprocess.run(
-                    ["./MyFun2C.sh", source_blob_name, input_blob_name], 
-                    capture_output=True, text=True
-                )
+                
+                timeout_occurred = False
+                try:
+                    processo = subprocess.run(
+                        ["./MyFun2C.sh", source_blob_name, input_blob_name], 
+                        capture_output=True, text=True,
+                        timeout=VISIBILITY_TIMEOUT - 20
+                    )
+                except subprocess.TimeoutExpired as e:
+                    timeout_occurred = True
+
+                    # Recuperiamo l'output parziale generato fino a quel momento (se disponibile)
+                    output_parziale = e.stdout.decode('utf-8') if e.stdout else ""
+                    errore_parziale = e.stderr.decode('utf-8') if e.stderr else ""
+
+                    log_output = f"⚠️ ERRORE CRITICO: L'esecuzione ha superato il limite di 50 secondi ed è stata interrotta forzatamente.\nPotrebbe esserci un loop infinito nel codice.\n\nOutput parziale:\n{output_parziale}\n\nErrore parziale:\n{errore_parziale}"
+            
                 tempo_esecuzione = round(time.time() - inizio, 2)
 
                 print(f"[3/4] Caricamento dei risultati sul Blob Storage...")
                 
-                stato_esecuzione = "Success" if processo.returncode == 0 else "Error"
+                stato_esecuzione = "Timeout" if timeout_occurred else "Success" if processo.returncode == 0 else "Error"
                 
                 # Carichiamo l'output testuale (stdout)
                 if os.path.exists(output_txt_name):
@@ -91,13 +104,16 @@ def avvia_worker():
                     "jobId": job_id,        # La nostra Partition Key
                     "status": stato_esecuzione,
                     "executionTimeSec": tempo_esecuzione,
-                    "log": processo.stderr if processo.returncode != 0 else processo.stdout,
+                    "log": log_output if timeout_occurred else processo.stderr if processo.returncode != 0 else processo.stdout,
                 }
                 # Upsert aggiorna il record se esiste, lo crea se non esiste
                 cosmos_container.upsert_item(documento_db)
 
-                print(f"JOB {job_id} COMPLETATO CON SUCCESSO IN {tempo_esecuzione}s!")
-                
+                if not timeout_occurred:
+                    print(f"JOB {job_id} COMPLETATO CON SUCCESSO IN {tempo_esecuzione}s!")
+                else:
+                    print(f"⚠️ JOB {job_id} INTERROTTO PER TIMEOUT DOPO {tempo_esecuzione}s!")
+                    
             except Exception as e:
                 print(f"ERRORE CRITICO durante l'elaborazione del job: {e}")
             

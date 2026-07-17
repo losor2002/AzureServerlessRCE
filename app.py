@@ -38,8 +38,10 @@ tab_nuovo, tab_cronologia = st.tabs(["🚀 Nuovo Job", "🕒 Cronologia Esecuzio
 def mostra_risultati(risultato):
     if risultato.get('status') == 'Success':
         st.success(f"✅ Esecuzione completata con successo in {risultato.get('executionTimeSec', 0)} secondi.")
-    else:
+    elif risultato.get('status') == 'Error':
         st.error("❌ Si è verificato un errore durante l'elaborazione.")
+    else:
+        st.warning("⚠️ Si è verificato un timeout. L'esecuzione del job non è stata completata.")
         
     # Mostra i log bash del processo di compilazione
     st.subheader("Log della Compilazione (MyFun2C.sh)")
